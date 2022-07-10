@@ -6,7 +6,8 @@ val commonDependencies = Seq(
   "io.getquill" %% "quill-zio" % "4.0.0-RC2", // Uses same ZIO version
   "io.getquill" %% "quill-jdbc-zio" % "4.0.0-RC2",
   "dev.zio" %% "zio-json" % "0.3.0-RC8",
-  "com.auth0" % "java-jwt" % "4.0.0"
+  "com.auth0" % "java-jwt" % "4.0.0",
+  "com.h2database" % "h2" % "1.4.199"
 )
 
 lazy val basics = project.in(file("basics"))

@@ -12,7 +12,7 @@ object OwlServer extends ZIOAppDefault {
     case Method.GET -> !! / "owls" => Response.text("Hoot!")
   }
 
-  private val zApp: Http[Any, Nothing, Request, Response] =
+  val zApp: Http[Any, Nothing, Request, Response] =
     Http.collectZIO[Request] { case Method.POST -> !! / "owls" =>
       Random.nextIntBetween(3, 6).map(n => Response.text("Hoot! " * n))
     }
