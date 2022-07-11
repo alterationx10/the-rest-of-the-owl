@@ -1,3 +1,5 @@
+# The REST of the Owl
+
 ## Outline
 
 ... wut do'n?
@@ -73,7 +75,7 @@ that `R` and `E` are the _resource_ and _Error_ channels of a `ZIO` effect, and
 we're going to be converting an `A` to a `B` effectually.
 
 There are some included type alias to shorten this signature, however in this
-post we will still with the full version.
+article we will still with the full version.
 
 ```scala
 type HttpApp[-R, +E] = Http[R, E, Request, Response]
@@ -83,7 +85,7 @@ type UHttp[-A, +B]   = Http[Any, Nothing, A, B]
 ```
 
 As a quick note, this section will have `R` as `Any` and `E` as `Nothing`. We
-will discuss including resources later in the article.
+will discuss including resources, and error handling later in the article.
 
 Let's take a moment to dig into our first endpoint:
 
@@ -121,9 +123,9 @@ and
 case (Method.GET, !! / "owls") => Response.text("Hoot!")
 ```
 
-should behave identically. So what's going on, is where are looking at a
-`Request` value, and matching on it's `Method` and `Path` - if they match, we
-will return our `Response`.
+should behave identically. So what's going on, is we are looking at a `Request`
+value, and matching on it's `Method` and `Path` - if they match, we will return
+our `Response`.
 
 It will be important for later, but we can reference the request `req` in our
 response, for example, via something like
@@ -188,9 +190,81 @@ As a further note, you can't use `/` and `/:` in the same case statement, as
 left- and right-associative operators with same precedence may not be mixed.
 This also means `!!` can only be used on the left, or right, respectively.
 
+#### Composing many Http[-R, +E, -A, +B]
+
+In our example, we also have:
+
+```scala
+  val zApp: Http[Any, Nothing, Request, Response] =
+    Http.collectZIO[Request] { case Method.POST -> !! / "owls" =>
+      Random.nextIntBetween(3, 6).map(n => Response.text("Hoot! " * n))
+    }
+```
+
+Note that `Http.collectZIO[Request]` behaves just like `Http.collect[Request]`,
+except here instead of returning a `Response`, we'll return a
+`ZIO[R, E, Response]`. Being ZIO users, it would make sense to see this form
+heavily in an app that relies on our _resourceful_ logic. In the example above,
+this endpoint will use the built-in `zio.Random` (which no longer needs to be
+declared in the `R` channel, as we're using ZIO 2), and `Hoot` at us 3 to 5
+times randomly, per request.
+
+We then combine `app` and `zApp` to pass to the server:
+
+```scala
+  val combined: Http[Any, Nothing, Request, Response] = app ++ zApp
+```
+
+There are four operators to compose these "HTTP applications": `++`, `<>`, `>>>`
+and `<<<`, and the behavior of each is as described from the
+[official documentation](https://dream11.github.io/zio-http/docs/v1.x/dsl/http#composition-of-http-applications).
+
+> ++ is an alias for defaultWith. While using ++, if the first HTTP application
+> returns None the second HTTP application will be evaluated, ignoring the
+> result from the first. If the first HTTP application is failing with a Some[E]
+> the second HTTP application won't be evaluated.
+
+> <> is an alias for orElse. While using <>, if the first HTTP application fails
+> with Some[E], the second HTTP application will be evaluated, ignoring the
+> result from the first. If the first HTTP application returns None, the second
+> HTTP application won't be evaluated.
+
+> `>>>` is an alias for andThen. It runs the first HTTP application and pipes
+> the output into the other.
+
+> <<< is the alias for compose. Compose is similar to andThen. It runs the
+> second HTTP application and pipes the output to the first HTTP application.
+
+Later in the article, we will show an example of composing these wih differing
+`R` and `E` types.
+
 ### Server
 
-... start it up
+At this pont, we have everything needed to start up an instance of our web
+server:
+
+```scala
+  val program: ZIO[Any, Throwable, ExitCode] = for {
+    _ <- Console.printLine(s"Starting server on http://localhost:$port")
+    _ <- Server.start(port, combined)
+  } yield ExitCode.success
+
+  override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
+    program
+```
+
+This is a simple entry point, and we only need to give `Server.start` a port
+(defined as `9000` above), and our _composed_ `Http[R, E, Request, Response]`.
+
+Note that `Server.start` internally calls `ZIO.never`, and will block your
+for-comprehension at that point. You should include it last, or append
+`.forkDaemon`, and provide your own logic afterwards.
+
+You can apply some configuration to the `Server` instance, however we won't
+cover this in much capacity in this article. If interested, you can see the
+official documentation
+[here](https://dream11.github.io/zio-http/docs/v1.x/dsl/server/) and
+[here](https://dream11.github.io/zio-http/docs/v1.x/examples/advanced-examples/advanced_server).
 
 ## Next Steps
 
