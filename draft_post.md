@@ -66,7 +66,127 @@ object OwlServer extends ZIOAppDefault {
 
 ### Request => Response
 
-... would you like to build an HttpApp?
+In `zhttp`, `Request`s are processed into `Response`s via implementations of a
+`sealed trait Http[-R, +E, -A, +B]`, which itself
+`extends (A => ZIO[R, Option[E], B])`. From the latter, we can quickly infer
+that `R` and `E` are the _resource_ and _Error_ channels of a `ZIO` effect, and
+we're going to be converting an `A` to a `B` effectually.
+
+There are some included type alias to shorten this signature, however in this
+post we will still with the full version.
+
+```scala
+type HttpApp[-R, +E] = Http[R, E, Request, Response]
+type UHttpApp        = HttpApp[Any, Nothing]
+type RHttpApp[-R]    = HttpApp[R, Throwable]
+type UHttp[-A, +B]   = Http[Any, Nothing, A, B]
+```
+
+As a quick note, this section will have `R` as `Any` and `E` as `Nothing`. We
+will discuss including resources later in the article.
+
+Let's take a moment to dig into our first endpoint:
+
+```scala
+  val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+    case Method.GET -> !! / "owls" => Response.text("Hoot!")
+  }
+```
+
+We will use `A` and `B` here, knowing that above `A = Request` and
+`B = Response`. `Http.collect[A]` is a `PartialCollect[A]` - which behaves like
+a PartialFunction, meaning we're going to pattern match on something relating to
+`A` and return a `B`.
+
+We're matching against a `Request`, so let's look closer at the `case` statement
+above. The tricky syntax is the infixed `->` operator, so let's first look to
+the immediate _right_ of it: `!! / "owls"`. This is a `Path`, and `!!` denotes
+the root of the path (an empty path, which will be important later). On the
+_left_ of `->` is `Method.GET` - a `Method`. What `->` does, is tuple2 together
+the things on the left/right of it. The definition is
+
+```scala
+@inline def -> [B](y: B): (A, B) = (self, y)
+```
+
+In our case
+
+```scala
+case Method.GET -> !! / "owls" => Response.text("Hoot!")
+```
+
+and
+
+```scala
+case (Method.GET, !! / "owls") => Response.text("Hoot!")
+```
+
+should behave identically. So what's going on, is where are looking at a
+`Request` value, and matching on it's `Method` and `Path` - if they match, we
+will return our `Response`.
+
+It will be important for later, but we can reference the request `req` in our
+response, for example, via something like
+
+```scala
+case req @ Method.GET -> !! / "owls" => Response.text("Hoot!")
+```
+
+As a quick aside, `Http.collect` also internally lifts these to `Option`s, so it
+can handle the case of `None` when nothing may match.
+
+A `Method` models an HTTP request method, i.e. `GET`, `POST`, `DELETE`, etc...
+
+A `Path` models an HTTP request path. As mentioned above, `!!` represents the a
+path root. `/` is a path delimiter that starts extraction of the left-hand side.
+
+`/:` is a path delimiter that starts extraction of the right-hand side , and can
+partially match paths. We should be careful here, as if we don't terminate the
+path from the right-hand side, it could have unintended consequences. For
+example, we could parse a `name` for an owl as
+
+```scala
+case Method.GET -> "owls" /: name  => Response.text(s"$name says: Hoot!")
+```
+
+and if we took to `curl`:
+
+```shell
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls
+Hoot!%
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls/Hooty
+/Hooty says: Hoot!%
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls/Hooty/The/Owl
+/Hooty/The/Owl says: Hoot!%
+```
+
+We can see in the third case, we're parsing more than just one segment
+representing a name! To look for the appropriate number of segments, we put the
+`!!` at the end to get it to behave as we hoped:
+
+```scala
+case Method.GET -> "owls" /: name /: !! => Response.text(s"$name says: Hoot!")
+```
+
+```shell
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls
+Hoot!%
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls/Hooty
+Hooty says: Hoot!%
+➜ the-rest-of-the-owl (main) ✗ curl http://localhost:9000/owls/Hooty/The/Owl
+<!DOCTYPE html><html><head><title>ZIO Http - NotFound</title><style>
+ body {
+   font-family: monospace;
+   font-size: 16px;
+   background-color: #edede0;
+ }
+</style></head><body><div style="margin:auto;padding:2em 4em;max-width:80%"><h1>NotFound</h1><div><div style="text-align:center"><div style="font-size:20em">404</div><div>The requested URI "/owls/Hooty/The/Owl" was not found on this server
+</div></div><div><div></div></div></div></div></body></html>%
+```
+
+As a further note, you can't use `/` and `/:` in the same case statement, as
+left- and right-associative operators with same precedence may not be mixed.
+This also means `!!` can only be used on the left, or right, respectively.
 
 ### Server
 
