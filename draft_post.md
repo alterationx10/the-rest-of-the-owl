@@ -272,7 +272,40 @@ official documentation
 
 ### Middleware
 
-... extending HttpApps
+Broadly, the definition of _middleware_ is context dependent; in our realm of
+our discussion, if we're turning a `Request` into a `Response`, then it's
+anything we do _in the middle_ of that process. It may be something behind the
+scenes, like adding logging through the process, or even more intrusive like
+modifying the request to add headers to the request. Middleware is great at
+helping de-couple/re-use business logic. I use the word _intrusive_ to help
+emphasize that de-couple doesn't mean make _optional/not required_. For example,
+if we adding logging, we probably wouldn't expect that to have an impact on the
+functionality of our application. If we're parsing out information from a
+header, and then adding a custom, internal authorization header, then our
+application might stop working if we don't include it.
+
+Specificity, in the context of `zhttp`, a `Middleware` is a transformation
+function that converts _one_ `Http` to _another_.
+
+```scala
+type Middleware[R, E, AIn, BIn, AOut, BOut] = Http[R, E, AIn, BIn] => Http[R, E, AOut, BOut]
+```
+
+We _attach_ middleware to our `Http` via the `@@` operator. For example, we
+could update our logic to use a built-in debug `Middleware` like so:
+
+```scala
+  val wrapped: Http[Console with Clock, IOException, Request, Response] =
+    combined @@ Middleware.debug
+```
+
+and then, when running our application, we would see some debug messaging
+printed when a client interacts with our server:
+
+```shell
+[info] Starting server on http://localhost:9000
+[info] 200 GET /owls 9ms
+```
 
 #### Logging
 
