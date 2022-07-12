@@ -426,6 +426,83 @@ successfully use the default implementation.**
 
 #### CSRF
 
+```scala
+  val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+    case Method.GET -> !! / "owls"          => Response.text("Hoot!")
+    case Method.GET -> "owls" /: name /: !! =>
+      Response.text(s"$name says: Hoot!")
+  } @@ Middleware.csrfGenerate()
+```
+
+```scala
+  val zApp: Http[Any, Nothing, Request, Response] =
+    Http.collectZIO[Request] { case Method.POST -> !! / "owls" =>
+      Random.nextIntBetween(3, 6).map(n => Response.text("Hoot! " * n))
+    } @@ Middleware.csrfValidate()
+```
+
+Getting a token / cookie:
+
+```shell
+➜ ~ curl -X GET -v http://localhost:9001/owls
+Note: Unnecessary use of -X or --request, GET is already inferred.
+*   Trying 127.0.0.1:9001...
+* Connected to localhost (127.0.0.1) port 9001 (#0)
+> GET /owls HTTP/1.1
+> Host: localhost:9001
+> User-Agent: curl/7.79.1
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< content-type: text/plain
+< set-cookie: x-csrf-token=2075bc8b-c64b-494c-8249-c3a87ca72fcd
+< content-length: 5
+<
+* Connection #0 to host localhost left intact
+Hoot!%
+```
+
+Trying to access without token/cookie:
+
+```shell
+➜ ~ curl -X POST -v http://localhost:9001/owls
+*   Trying 127.0.0.1:9001...
+* Connected to localhost (127.0.0.1) port 9001 (#0)
+> POST /owls HTTP/1.1
+> Host: localhost:9001
+> User-Agent: curl/7.79.1
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 403 Forbidden
+< content-length: 0
+<
+* Connection #0 to host localhost left intact
+```
+
+Sending the required information
+
+```shell
+➜ ~ curl -X POST -v --cookie "x-csrf-token=2075bc8b-c64b-494c-8249-c3a87ca72fcd" -H "x-csrf-token: 2075bc8b-c64b-494c-8249-c3a87ca72fcd" http://localhost:9001/owls
+*   Trying 127.0.0.1:9001...
+* Connected to localhost (127.0.0.1) port 9001 (#0)
+> POST /owls HTTP/1.1
+> Host: localhost:9001
+> User-Agent: curl/7.79.1
+> Accept: */*
+> Cookie: x-csrf-token=2075bc8b-c64b-494c-8249-c3a87ca72fcd
+> x-csrf-token: 2075bc8b-c64b-494c-8249-c3a87ca72fcd
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< content-type: text/plain
+< content-length: 18
+<
+* Connection #0 to host localhost left intact
+Hoot! Hoot! Hoot! %
+```
+
 #### Basic Auth
 
 ## Extra Credit
