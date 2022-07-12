@@ -386,6 +386,44 @@ see something like:
 
 #### Cors
 
+To use the built-in cors, you need to instantiate a `CorsConfig` such as:
+
+```scala
+val config: CorsConfig =
+    CorsConfig(
+      anyOrigin = false,
+      allowedOrigins = s => s.equals("localhost:9001")
+    )
+```
+
+and provide it as an argument via `@@ Middleware.cors(config)`.
+
+Note that the case class has a lot of default values provided, and it may be
+unintuitive at first:
+
+```scala
+object Cors {
+  final case class CorsConfig(
+    anyOrigin: Boolean = true,
+    anyMethod: Boolean = true,
+    allowCredentials: Boolean = true,
+    allowedOrigins: String => Boolean = _ => false,
+    allowedMethods: Option[Set[Method]] = None,
+    allowedHeaders: Option[Set[String]] = Some(
+      Set(HttpHeaderNames.CONTENT_TYPE.toString, HttpHeaderNames.AUTHORIZATION.toString, "*"),
+    ),
+    exposedHeaders: Option[Set[String]] = Some(Set("*")),
+  )
+}
+```
+
+For example, you might start with
+`CorsConfig(allowedOrigins = _ == "myhost.com")`, but the `anyOrigin` value is
+defaulted to `true`.
+
+**Note, that although easy to set up and apply, I have not been able to
+successfully use the default implementation.**
+
 #### CSRF
 
 #### Basic Auth
