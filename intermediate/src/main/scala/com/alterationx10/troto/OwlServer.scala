@@ -4,10 +4,11 @@ import zhttp.http._
 import zhttp.service.Server
 import zio._
 import java.io.IOException
+import com.alterationx10.troto.middleware.Verbose
 
 object OwlServer extends ZIOAppDefault {
 
-  val port: Int = 9000
+  val port: Int = 9001
 
   val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
     case Method.GET -> !! / "owls"          => Response.text("Hoot!")
@@ -22,8 +23,8 @@ object OwlServer extends ZIOAppDefault {
 
   val combined: Http[Any, Nothing, Request, Response] = app ++ zApp
 
-  val wrapped: Http[Console with Clock, IOException, Request, Response] =
-    combined @@ Middleware.debug
+  val wrapped: Http[Any,Throwable,Request,Response] =
+    combined @@ Verbose.log
 
   val program: ZIO[Console with Clock, Throwable, ExitCode] = for {
     _ <- Console.printLine(s"Starting server on http://localhost:$port")

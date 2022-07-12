@@ -307,7 +307,82 @@ printed when a client interacts with our server:
 [info] 200 GET /owls 9ms
 ```
 
+In the next section, we will build our own Logging Middleware, and then looks at
+a few of the other built in ones.
+
 #### Logging
+
+Our custom middleware is going to log some information about the `Request`
+received, and the `Response` about to be sent back. We'll set up a new object
+`Verbose` and define a method `log` that returns a `new Middleware`, in which we
+will define the trait's `apply` method.
+
+```scala
+package com.alterationx10.troto.middleware
+
+import zhttp.http._
+import zio._
+
+object Verbose {
+
+  def log[R, E >: Throwable]
+      : Middleware[R, E, Request, Response, Request, Response] =
+    new Middleware[R, E, Request, Response, Request, Response] {
+
+      override def apply[R1 <: R, E1 >: E](
+          http: Http[R1, E1, Request, Response]
+      ): Http[R1, E1, Request, Response] =
+        http
+          .contramapZIO[R1, E1, Request] { r =>
+            for {
+              _ <- Console.printLine(s"> ${r.method} ${r.path} ${r.version}")
+              _ <- ZIO.foreach(r.headers.toList) { h =>
+                     Console.printLine(s"> ${h._1}: ${h._2}")
+                   }
+            } yield r
+          }
+          .mapZIO[R1, E1, Response] { r =>
+            for {
+              _ <- Console.printLine(s"< ${r.status}")
+              _ <- ZIO.foreach(r.headers.toList) { h =>
+                     Console.printLine(s"< ${h._1}: ${h._2}")
+                   }
+            } yield r
+          }
+
+    }
+
+}
+```
+
+We're not modifying the input/output, so the types remain the same and their
+values un-altered. We use `.contramapZIO` to accesses the `Request`, print some
+information about it, and then return the un-altered value. We then do the same
+thing with `mapZIO` for the `Response`.
+
+This is a very simple example, but is very illustrative of how you can easily
+update the `Request`/`Response` values if desired, or even fail-fast if a
+particular header is missing, or unverified.
+
+We attach our custom `Middleware` jsut as before:
+
+```scala
+val wrapped: Http[Any,Throwable,Request,Response] =
+    combined @@ Verbose.log
+```
+
+and if we run our server, and make a request via curl, in our console we should
+see something like:
+
+```shell
+[info] Starting server on http://localhost:9001
+[info] > POST /owls Http_1_1
+[info] > Host: localhost:9001
+[info] > User-Agent: curl/7.79.1
+[info] > Accept: */*
+[info] < Ok
+[info] < content-type: text/plain
+```
 
 #### Cors
 
