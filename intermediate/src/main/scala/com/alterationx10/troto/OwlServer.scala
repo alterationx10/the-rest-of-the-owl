@@ -23,7 +23,12 @@ object OwlServer extends ZIOAppDefault {
       Random.nextIntBetween(3, 6).map(n => Response.text("Hoot! " * n))
     } @@ Middleware.csrfValidate()
 
-  val combined: Http[Any, Nothing, Request, Response] = app ++ zApp
+  val authApp: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+    case Method.GET -> !! / "secret" / "owls" =>
+      Response.text("The password is 'Hoot!'")
+  } @@ Middleware.basicAuth("hooty", "tootie")
+
+  val combined: Http[Any, Nothing, Request, Response] = app ++ zApp ++ authApp
 
   val config: CorsConfig =
     CorsConfig(
