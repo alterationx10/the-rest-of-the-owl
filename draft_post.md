@@ -664,37 +664,27 @@ fine-grained individual access per route_.
 
 ### Websockets
 
-... ping <0> pong
+Websockets are also created using `Http`, but instead of collecting `Request`s,
+we typically collect `WebSocketChannelEvent`. Communication happens over the
+channel, so instead of returning `Response` we will return `Unit`. At a lower
+level, there is `Channel[A]`, which allows sending arbitrary messages of type
+`A`.There is also`ChannelEvent`, which encapsulates the types of messages that
+can be sent/received.
 
-#### Websocket Auth
+```scala
+case class ChannelEvent[A, B](channel: Channel[A], event: Event[B])
+```
+
+`WebSocketChannelEvent` is actually a type alias for
+`ChannelEvent[WebsocketFrame, WebSocketFrame]`.
 
 ### Streaming
 
-... ups and downs
-
-#### Requests
-
-... Streaming uploads
-
-#### Responses
-
-... Streaming downloads
+... responses
 
 ## The REST of the Owl
 
 ... some extra thoughts that are extra/adaptions of above
-
-### A Brief introduction to Quill
-
-#### Repositories
-
-... make some repositories
-
-#### Migrations
-
-#### Users
-
-##### Cookies
 
 ### Context via FiberRef
 
