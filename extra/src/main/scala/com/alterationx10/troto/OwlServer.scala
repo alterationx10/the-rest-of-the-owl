@@ -2,9 +2,7 @@ package com.alterationx10.troto
 
 import zhttp.http._
 import zhttp.service.Server
-import zhttp.socket._
 import zio._
-import java.io.IOException
 import zio.stream.ZStream
 
 object OwlServer extends ZIOAppDefault {
@@ -25,11 +23,11 @@ object OwlServer extends ZIOAppDefault {
       )
   }
 
-  val program: ZIO[Console with Clock, Throwable, ExitCode] = for {
+  val program: ZIO[Any, Throwable, ExitCode] = for {
     _ <- Console.printLine(s"Starting server on http://localhost:$port")
     _ <- Server.start(port, stream)
   } yield ExitCode.success
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    program.provideSomeLayer(Clock.live ++ Console.live)
+    program
 }

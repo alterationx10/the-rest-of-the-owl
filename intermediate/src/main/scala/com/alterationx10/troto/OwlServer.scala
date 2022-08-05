@@ -1,12 +1,10 @@
 package com.alterationx10.troto
 
+import com.alterationx10.troto.middleware.Verbose
 import zhttp.http._
+import zhttp.http.middleware.Cors.CorsConfig
 import zhttp.service.Server
 import zio._
-import java.io.IOException
-import com.alterationx10.troto.middleware.Verbose
-import zhttp.http.middleware.Cors.CorsConfig
-import zhttp.http.middleware.Cors
 
 object OwlServer extends ZIOAppDefault {
 
@@ -43,11 +41,11 @@ object OwlServer extends ZIOAppDefault {
   val wrapped: Http[Any, Throwable, Request, Response] =
     combined @@ allMiddleware
 
-  val program: ZIO[Console with Clock, Throwable, ExitCode] = for {
+  val program: ZIO[Any, Throwable, ExitCode] = for {
     _ <- Console.printLine(s"Starting server on http://localhost:$port")
     _ <- Server.start(port, wrapped)
   } yield ExitCode.success
 
   override def run: ZIO[Any with ZIOAppArgs with Scope, Any, Any] =
-    program.provideSomeLayer(Clock.live ++ Console.live)
+    program
 }

@@ -2,7 +2,7 @@ ThisBuild / scalaVersion := "2.13.8"
 ThisBuild / organization := "com.alterationx10"
 
 val commonDependencies = Seq(
-  "io.d11" %% "zhttp" % "2.0.0-RC9"
+  "io.d11" %% "zhttp" % "2.0.0-RC10"
 )
 
 lazy val basics = project
