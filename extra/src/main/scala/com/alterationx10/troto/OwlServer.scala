@@ -1,17 +1,8 @@
 package com.alterationx10.troto
 
 import zhttp.http._
-import zhttp.service.ChannelEvent.UserEvent.{
-  HandshakeComplete,
-  HandshakeTimeout
-}
-import zhttp.service.ChannelEvent.{
-  ChannelRead,
-  ChannelRegistered,
-  ChannelUnregistered,
-  ExceptionCaught,
-  UserEventTriggered
-}
+import zhttp.service.ChannelEvent.UserEvent.{HandshakeComplete, HandshakeTimeout}
+import zhttp.service.ChannelEvent.{ChannelRead, ChannelUnregistered, UserEventTriggered}
 import zhttp.service._
 import zhttp.socket._
 import zio._

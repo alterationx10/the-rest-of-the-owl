@@ -6,21 +6,13 @@
 
 ## Set Up
 
-This discussion will be based off of the latest ZIO HTTP code, which is an RC at
-the time of this writing (early July 2022). This RC uses an earlier version of
-ZIO (2.0.0-RC6), so other ZIO related dependencies have been selected to match
-that.
-
-The following dependencies are used:
+This discussion will be based off of the latest ZIO HTTP code that supports ZIO
+2.0, which is an RC at the time of this writing (early August 2022). The
+following dependencies are used:
 
 ```scala
 val commonDependencies = Seq(
-  "io.d11" %% "zhttp" % "2.0.0-RC9",
-  "io.getquill" %% "quill-zio" % "4.0.0-RC2",
-  "io.getquill" %% "quill-jdbc-zio" % "4.0.0-RC2",
-  "dev.zio" %% "zio-json" % "0.3.0-RC8",
-  "com.auth0" % "java-jwt" % "4.0.0",
-  "com.h2database" % "h2" % "1.4.199"
+  "io.d11" %% "zhttp" % "2.0.0-RC10",
 )
 ```
 
@@ -672,26 +664,71 @@ level, there is `Channel[A]`, which allows sending arbitrary messages of type
 can be sent/received.
 
 ```scala
-case class ChannelEvent[A, B](channel: Channel[A], event: Event[B])
+final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.Event[B])
 ```
 
 `WebSocketChannelEvent` is actually a type alias for
 `ChannelEvent[WebsocketFrame, WebSocketFrame]`.
 
+```scala
+  val sarcastically: String => String =
+    txt =>
+      txt.toList.zipWithIndex.map { case (c, i) =>
+        if (i % 2 == 0) c.toUpper else c.toLower
+      }.mkString
+
+  val wsLogic: Http[Any, Throwable, WebSocketChannelEvent, Unit] =
+    Http.collectZIO[WebSocketChannelEvent] {
+
+      case ChannelEvent(ch, ChannelRead(WebSocketFrame.Text(msg))) =>
+        ch.writeAndFlush(WebSocketFrame.text(sarcastically(msg)))
+
+      case ChannelEvent(ch, UserEventTriggered(event)) =>
+        event match {
+          case HandshakeComplete => ZIO.logInfo("Connection started!")
+          case HandshakeTimeout  => ZIO.logInfo("Connection failed!")
+        }
+
+      case ChannelEvent(ch, ChannelUnregistered) =>
+        ZIO.logInfo("Connection closed!")
+
+    }
+```
+
+```scala
+  val wsApp: Http[Any, Nothing, Request, Response] = Http.collectZIO[Request] {
+    case Method.GET -> !! / "ws" => wsLogic.toSocketApp.toResponse
+  }
+```
+
+```shell
+➜ ~ websocat ws://localhost:9002/ws
+Hello
+HeLlO
+Sarcasm is hard to convey on the internet
+SaRcAsM Is hArD To cOnVeY On tHe iNtErNeT
+```
+
 ### Streaming
 
-... responses
+```scala
+  val content: String =
+    "All work and no Play Framework makes Jack a dull boy\n" * 1000
 
-## The REST of the Owl
+  val data: Chunk[Byte] = Chunk.fromArray(content.getBytes(HTTP_CHARSET))
 
-... some extra thoughts that are extra/adaptions of above
+  val stream: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
+    case Method.GET -> !! / "stream" =>
+      Response(
+        status = Status.Ok,
+        headers = Headers.contentLength(data.length.toLong),
+        data = HttpData.fromStream(ZStream.fromChunk(data))
+      )
+  }
+```
 
-### Context via FiberRef
+... link to ZStream article
 
-### Request Context
+## Summary
 
-### Authorization Context
-
-### Action Composition Lite :tm:
-
-... play inspired
+Wut done?
