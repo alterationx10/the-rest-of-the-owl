@@ -28,11 +28,3 @@ lazy val extra = project
     libraryDependencies ++= commonDependencies,
     fork := true
   )
-
-lazy val troto = project
-  .in(file("troto"))
-  .settings(
-    name := "the-REST-of-the-owl",
-    libraryDependencies ++= commonDependencies,
-    fork := true
-  )
