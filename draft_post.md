@@ -2,7 +2,16 @@
 
 ## Outline
 
-... wut do'n?
+In this post, we're going to go over an introduction to the zio-http library,
+and take a look at some of the basic utilities it provides to get you up and
+running.
+
+By the end, we'll cover
+
+- basic routing
+- built-in and custom middleware
+- response streaming
+- websockets
 
 ## Set Up
 
@@ -67,7 +76,9 @@ that `R` and `E` are the _resource_ and _Error_ channels of a `ZIO` effect, and
 we're going to be converting an `A` to a `B` effectually.
 
 There are some included type alias to shorten this signature, however in this
-article we will still with the full version.
+article we will try to stick to the full version. Also, not, that due to the
+first type alias, the official documentation tends to often refer to thing as an
+"http app" or "app".
 
 ```scala
 type HttpApp[-R, +E] = Http[R, E, Request, Response]
@@ -227,9 +238,6 @@ and `<<<`, and the behavior of each is as described from the
 > <<< is the alias for compose. Compose is similar to andThen. It runs the
 > second HTTP application and pipes the output to the first HTTP application.
 
-Later in the article, we will show an example of composing these wih differing
-`R` and `E` types.
-
 ### Server
 
 At this pont, we have everything needed to start up an instance of our web
@@ -260,7 +268,10 @@ official documentation
 
 ## Next Steps
 
-... lift'n me higher
+At this stage, we've covered some `zhttp` basics, like pattern matching on a
+requests method and path, to run the appropriate logic. Out next steps will be
+about adding on extra functionality, like CRSF tokens and Authorization, via
+Middleware.
 
 ### Middleware
 
@@ -299,7 +310,7 @@ printed when a client interacts with our server:
 [info] 200 GET /owls 9ms
 ```
 
-In the next section, we will build our own Logging Middleware, and then looks at
+In the next section, we will build our own Logging Middleware, and then look at
 a few of the other built in ones.
 
 #### Logging
@@ -356,7 +367,7 @@ This is a very simple example, but is very illustrative of how you can easily
 update the `Request`/`Response` values if desired, or even fail-fast if a
 particular header is missing, or unverified.
 
-We attach our custom `Middleware` jsut as before:
+We attach our custom `Middleware` just as before:
 
 ```scala
 val wrapped: Http[Any,Throwable,Request,Response] =
@@ -460,9 +471,9 @@ to _both_ send this cookie, _as well as_ the `token` as a parameter. You could
 imagine that a trusted web page that is rendered with form submissions already
 have this value on a hidden input pre-filled and sets a cookie. When the form is
 submitted, the cookie will go along with the values, and the back-end server can
-verify that they are preset _and_ match! From here, you can see how you might
-also encrypt the cookie as well, so the back-end can verify that it can decrypt
-the `token` as well.
+verify that they are preset _and_ match! From here, you can also take it a step
+further and encrypt the cookie, so the back-end can verify that it can decrypt
+the `token` as well to ensure authenticity.
 
 `zhttp` includes `Middleware.csrfGenerate()` and `Middleware.csrfValidate()` as
 built-in options. For our example, we'll spit these and add the `csrfGenerate`
@@ -609,7 +620,7 @@ The password is 'Hoot!'%
 ```
 
 We can see that our `Authorization: Basic aG9vdHk6dG9vdGll` was sent in plain
-text in broad daylight, as well as that our request was successful.
+text, as well as that our request was successful.
 
 #### Juggling Middleware Priority
 
@@ -648,11 +659,16 @@ afterwards would also require basic auth. This also makes it not possible to
 apply a _second_ `Middleware.basicAuth("hooty2", "tootie2")` at an `Http` passed
 the first, because we'd always fail the credential validation at the first
 middleware evaluation of the credentials (it would check for `user == hooty` and
-`password == tootie`). The best we could do is allow a set of users/passwords
-that all have the same level of access to various protected routes, _but not
-fine-grained individual access per route_.
+`password == tootie`). The best we could do with basic auth is allow a set of
+users/passwords that all have the same level of access to various protected
+routes, _but not fine-grained individual access per route_.
 
 ## Extra Credit
+
+Congratulations on making it this far! By now, we've set up a web server that's
+returning content, and added basic levels of security like authorization, CSRF
+tokens, and CORS policies 🎉 In the next, and final section, we will quickly
+visit websocket support and response streaming.
 
 ### Websockets
 
@@ -669,6 +685,12 @@ final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.E
 
 `WebSocketChannelEvent` is actually a type alias for
 `ChannelEvent[WebsocketFrame, WebSocketFrame]`.
+
+In our code example below, in addition to logging on some connections hooks, we
+mainly return back the data sent from the user, but in an alternating case. You
+could further pattern match on the incoming message to perform different actions
+based on the incoming payload - our bundled multiple `Http`s with different
+endpoints to handle different functionality.
 
 ```scala
   val sarcastically: String => String =
@@ -701,6 +723,10 @@ final case class ChannelEvent[-A, +B](channel: Channel[A], event: ChannelEvent.E
   }
 ```
 
+We will use a handy cli tool called `websocat` to test our websockets. It will
+allow us to connect to our server, send messages, and see the responses that
+come back.
+
 ```shell
 ➜ ~ websocat ws://localhost:9002/ws
 Hello
@@ -710,6 +736,17 @@ SaRcAsM Is hArD To cOnVeY On tHe iNtErNeT
 ```
 
 ### Streaming
+
+Streaming responses is handled via `ZStream`, and works straight forwardly, if
+you are comfortable with that topic. If you would like to dig into `ZStream`s a
+bit further, I suggest you check out this
+[article](https://blog.rockthejvm.com/zio-streams/).
+
+In our example below, we take a `String` sentence, and repeat it 1000 times to
+bulk it up a bit, being sure to use the `HTTP_CHARSET` encoding when we create a
+`Chunk` for it. At this point, it's as easy as
+`HttpData.fromStream(ZStream.fromChunk(data))`! Anything you can
+`ZStream.from...` is fair game to stream, which is fairly powerful.
 
 ```scala
   val content: String =
@@ -727,8 +764,9 @@ SaRcAsM Is hArD To cOnVeY On tHe iNtErNeT
   }
 ```
 
-... link to ZStream article
+## Wrapping Up
 
-## Summary
-
-Wut done?
+Hopefully, after reading this introduction, you feel comfortable enough to spin
+up your own web server with zio-http, start adding on built in security
+features - as well as custom middleware logic, and delve into high performance
+via streaming responses and real-time communication via websockets.
