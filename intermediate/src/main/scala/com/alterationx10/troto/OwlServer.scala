@@ -12,7 +12,7 @@ object OwlServer extends ZIOAppDefault {
 
   val app: Http[Any, Nothing, Request, Response] = Http.collect[Request] {
     case Method.GET -> !! / "owls"          => Response.text("Hoot!")
-    case Method.GET -> "owls" /: name /: !! =>
+    case Method.GET -> "" /: "owls" /: name =>
       Response.text(s"$name says: Hoot!")
   } @@ Middleware.csrfGenerate()
 
