@@ -32,7 +32,7 @@ object OwlServer extends ZIOAppDefault {
     CorsConfig(
       anyOrigin = false,
       anyMethod = false,
-      allowedOrigins = s => s.equals("localhost:9001"),
+      allowedOrigins = s => s.equals("localhost"),
       allowedMethods = Some(Set(Method.GET, Method.POST))
     )
 
